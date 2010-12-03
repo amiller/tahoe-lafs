@@ -87,6 +87,7 @@ class StorageFarmBroker:
         ic.subscribe_to("storage", self._got_announcement)
 
     def _got_announcement(self, key_s, ann):
+        print "_got_announcement: %r %r" % (key_s, ann)
         if key_s is not None:
             precondition(isinstance(key_s, str), key_s)
             precondition(key_s.startswith("v0-"), key_s)
