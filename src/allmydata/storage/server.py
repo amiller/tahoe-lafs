@@ -497,7 +497,10 @@ class StorageServer(service.MultiService):
                 level=log.SCARY, umid="SGx2fA")
         return None
 
-    def get_immutable_data(self, si, shnum, start, length):
+    def get_immutable_data(self, si, shnum, readv):
         br = self.client_get_buckets(si, None)
         b = br[shnum]
-        return b.remote_read(start, length)
+        # we rely upon remote_read() actually being synchronous
+        datav = "".join([b.remote_read(start, length)
+                         for (start, length) in readv])
+        return datav
