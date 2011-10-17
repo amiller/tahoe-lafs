@@ -273,6 +273,7 @@ class StorageServer(service.MultiService):
                           # new payment methods go here
                           #"bitcoin": 1,
                           },
+                      "http-v1": True,
                       },
                     "application-version": str(allmydata.__full_version__),
                     }
@@ -501,6 +502,4 @@ class StorageServer(service.MultiService):
         br = self.client_get_buckets(si, None)
         b = br[shnum]
         # we rely upon remote_read() actually being synchronous
-        datav = "".join([b.remote_read(start, length)
-                         for (start, length) in readv])
-        return datav
+        return [b.remote_read(start, length) for (start, length) in readv]
