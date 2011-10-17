@@ -163,6 +163,8 @@ class Client(node.Node, pollmixin.PollMixin):
         if webport:
             self.init_web(webport) # strports string
 
+        self.announce_storage_server()
+
     def init_introducer_client(self):
         self.introducer_furl = self.get_config("client", "introducer.furl")
         ic = IntroducerClient(self.tub, self.introducer_furl,
@@ -289,13 +291,22 @@ class Client(node.Node, pollmixin.PollMixin):
             expiration_override_lease_duration=o_l_d,
             expiration_cutoff_date=cutoff_date,
             expiration_sharetypes=expiration_sharetypes)
-        accountant_window = self.accountant.get_accountant_window(self.tub)
 
+    def announce_storage_server(self):
+        ss = self.storage_server
+        accountant_window = self.accountant.get_accountant_window(self.tub)
         d = self.when_tub_ready()
         # we can't do registerReference until the Tub is ready
         def _publish(res):
             ann = {}
             ann["permutation-seed-base32"] = self._init_permutation_seed(ss)
+
+            try:
+                webish = self.getServiceNamed("webish")
+            except KeyError:
+                webish = None
+            if webish:
+                ann_d["storage-URL"] = webish.getURL()+"storage"
 
             accountant_furlfile = os.path.join(self.basedir, "private", "accountant.furl").encode(get_filesystem_encoding())
             accountant_furl = self.tub.registerReference(accountant_window, furlFile=accountant_furlfile)
