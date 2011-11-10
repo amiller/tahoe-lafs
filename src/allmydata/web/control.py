@@ -32,6 +32,8 @@ class Clients(rend.Page):
         c = account.get_connection_status()
         if c["connected"]:
             cs = "Yes: from %s" % c["last_connected_from"]
+            # don't show the static accounts ("starter" and "anonymous") as
+            # red, that's scary, use white instead.
         elif c["last_connected_from"]:
             # there is a window (between Account creation and our connection
             # to the 'rxFURL' receiver) during which the Account exists but

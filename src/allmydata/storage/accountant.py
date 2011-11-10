@@ -18,6 +18,8 @@ def int_or_none(s):
         return s
     return int(s)
 
+# try to get rid of all the AUTOINCREMENT keys, use things like "SI/shnum"
+# and pubkey as the index
 LEASE_SCHEMA_V1 = """
 CREATE TABLE version
 (
@@ -52,6 +54,7 @@ CREATE INDEX `expiration_time` ON `leases` (`expiration_time`);
 CREATE TABLE accounts
 (
  `id` INTEGER PRIMARY KEY AUTOINCREMENT,
+ -- do some performance testing. Z+DS propose using pubkey_vs as the primary key
  `pubkey_vs` VARCHAR(52),
  `creation_time` INTEGER
 );
@@ -243,6 +246,7 @@ class LeaseDB:
 
 
 def size_of_disk_file(filename):
+    # use new fileutil.? method
     s = os.stat(filename)
     sharebytes = s.st_size
     try:
