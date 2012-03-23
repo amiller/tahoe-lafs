@@ -200,6 +200,14 @@ class NativeStorageServer:
         self._reconnector = None
         self._trigger_cb = None
 
+    # Special method used by copy.copy() and copy.deepcopy(). When those are
+    # used in allmydata.immutable.filenode to copy CheckResults during
+    # repair, we want it to treat the IServer instances as singletons.
+    def __copy__(self):
+        return self
+    def __deepcopy__(self, memodict):
+        return self
+
     def __repr__(self):
         return "<NativeStorageServer for %s>" % self.get_name()
     def get_serverid(self):

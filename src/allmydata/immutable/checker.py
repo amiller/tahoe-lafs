@@ -2,7 +2,7 @@ from zope.interface import implements
 from twisted.internet import defer
 from foolscap.api import DeadReferenceError, RemoteException
 from allmydata import hashtree, codec, uri
-from allmydata.interfaces import IValidatedThingProxy, IVerifierURI
+from allmydata.interfaces import IValidatedThingProxy, IVerifierURI, IServer
 from allmydata.hashtree import IncompleteHashTree
 from allmydata.check_results import CheckResults
 from allmydata.uri import CHKFileVerifierURI
@@ -495,6 +495,7 @@ class Checker(log.PrefixingLogMixin):
         that we want to track and report whether or not each server
         responded.)"""
 
+        assert IServer.providedBy(s)
         rref = s.get_rref()
         lease_seed = s.get_lease_seed()
         if self._add_lease:
@@ -573,6 +574,7 @@ class Checker(log.PrefixingLogMixin):
         it will not errback -- it will fire normally with the indicated
         results."""
 
+        assert IServer.providedBy(server)
         vcap = self._verifycap
         b = layout.ReadBucketProxy(bucket, server, vcap.get_storage_index())
         veup = ValidatedExtendedURIProxy(b, vcap)
@@ -685,6 +687,7 @@ class Checker(log.PrefixingLogMixin):
         then disconnected and ceased responding, or returned a failure, it is
         still marked with the True flag for 'success'.
         """
+        assert IServer.providedBy(s)
         d = self._get_buckets(s, self._verifycap.get_storage_index())
 
         def _got_buckets(result):
@@ -729,6 +732,7 @@ class Checker(log.PrefixingLogMixin):
         (a server disconnecting when we ask it for buckets is the same, for
         our purposes, as a server that says it has none, except that we want
         to track and report whether or not each server responded.)"""
+        assert IServer.providedBy(s)
         def _curry_empty_corrupted(res):
             buckets, responded = res
             return (set(buckets), s, set(), set(), responded)
@@ -742,20 +746,22 @@ class Checker(log.PrefixingLogMixin):
         d['count-shares-needed'] = self._verifycap.needed_shares
         d['count-shares-expected'] = self._verifycap.total_shares
 
-        verifiedshares = dictutil.DictOfSets() # {sharenum: set(serverid)}
-        servers = {} # {serverid: set(sharenums)}
+        verifiedshares = dictutil.DictOfSets() # {sharenum: set(server)}
+        servers = {} # {server: set(sharenums)}
         corruptsharelocators = [] # (serverid, storageindex, sharenum)
         incompatiblesharelocators = [] # (serverid, storageindex, sharenum)
+        SI = self._verifycap.get_storage_index()
 
-        for theseverifiedshares, thisserver, thesecorruptshares, theseincompatibleshares, thisresponded in results:
-            thisserverid = thisserver.get_serverid()
-            servers.setdefault(thisserverid, set()).update(theseverifiedshares)
-            for sharenum in theseverifiedshares:
-                verifiedshares.setdefault(sharenum, set()).add(thisserverid)
-            for sharenum in thesecorruptshares:
-                corruptsharelocators.append((thisserverid, self._verifycap.get_storage_index(), sharenum))
-            for sharenum in theseincompatibleshares:
-                incompatiblesharelocators.append((thisserverid, self._verifycap.get_storage_index(), sharenum))
+        for (these_verifiedshares, s, these_corruptshares,
+             these_incompatibleshares, this_responded) in results:
+            assert IServer.providedBy(s)
+            servers.setdefault(s, set()).update(these_verifiedshares)
+            for sharenum in these_verifiedshares:
+                verifiedshares.setdefault(sharenum, set()).add(s)
+            for sharenum in these_corruptshares:
+                corruptsharelocators.append((s, SI, sharenum))
+            for sharenum in these_incompatibleshares:
+                incompatiblesharelocators.append((s, SI, sharenum))
 
         d['count-shares-good'] = len(verifiedshares)
         d['count-good-share-hosts'] = len([s for s in servers.keys() if servers[s]])

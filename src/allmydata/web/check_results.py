@@ -5,8 +5,8 @@ from nevow import rend, inevow, tags as T
 from twisted.web import http, html
 from allmydata.web.common import getxmlfile, get_arg, get_root, WebError
 from allmydata.web.operations import ReloadMixin
-from allmydata.interfaces import ICheckAndRepairResults, ICheckResults
-from allmydata.util import base32, idlib
+from allmydata.interfaces import ICheckAndRepairResults, ICheckResults, IServer
+from allmydata.util import base32
 
 def json_check_counts(d):
     r = {}
@@ -15,16 +15,14 @@ def json_check_counts(d):
     r["count-shares-expected"] = d["count-shares-expected"]
     r["count-good-share-hosts"] = d["count-good-share-hosts"]
     r["count-corrupt-shares"] = d["count-corrupt-shares"]
-    r["list-corrupt-shares"] = [ (idlib.nodeid_b2a(serverid),
-                                  base32.b2a(si), shnum)
-                                 for (serverid, si, shnum)
+    r["list-corrupt-shares"] = [ (s.get_longname(), base32.b2a(si), shnum)
+                                 for (s, si, shnum)
                                  in d["list-corrupt-shares"] ]
-    r["servers-responding"] = [idlib.nodeid_b2a(serverid)
-                               for serverid in d["servers-responding"]]
+    r["servers-responding"] = [s.get_longname()
+                               for s in d["servers-responding"]]
     sharemap = {}
-    for (shareid, serverids) in d["sharemap"].items():
-        sharemap[shareid] = [idlib.nodeid_b2a(serverid)
-                             for serverid in serverids]
+    for (shareid, servers) in d["sharemap"].items():
+        sharemap[shareid] = [s.get_longname() for s in servers]
     r["sharemap"] = sharemap
 
     r["count-wrong-shares"] = d["count-wrong-shares"]
@@ -95,11 +93,11 @@ class ResultsBase:
 
         if data["list-corrupt-shares"]:
             badsharemap = []
-            for (serverid, si, shnum) in data["list-corrupt-shares"]:
-                nickname = sb.get_nickname_for_serverid(serverid)
+            for (s, si, shnum) in data["list-corrupt-shares"]:
+                nickname = s.get_nickname()
                 badsharemap.append(T.tr[T.td["sh#%d" % shnum],
                                         T.td[T.div(class_="nickname")[nickname],
-                                              T.div(class_="nodeid")[T.tt[base32.b2a(serverid)]]],
+                                              T.div(class_="nodeid")[T.tt[s.get_name()]]],
                                         ])
             add("Corrupt shares", T.table()[
                 T.tr[T.th["Share ID"],
@@ -113,21 +111,28 @@ class ResultsBase:
         sharemap = []
         servers = {}
 
-        # FIXME: The two tables below contain nickname-and-nodeid table column markup which is duplicated with each other, introducer.xhtml, and deep-check-results.xhtml. All of these (and any other presentations of nickname-and-nodeid) should be combined.
+        # FIXME: The two tables below contain nickname-and-nodeid table
+        # column markup which is duplicated with each other,
+        # introducer.xhtml, and deep-check-results.xhtml. All of these (and
+        # any other presentations of nickname-and-nodeid) should be combined.
 
         for shareid in sorted(data["sharemap"].keys()):
-            serverids = data["sharemap"][shareid]
-            for i,serverid in enumerate(serverids):
-                if serverid not in servers:
-                    servers[serverid] = []
-                servers[serverid].append(shareid)
+            for i,s in enumerate(data["sharemap"][shareid]):
+                assert IServer.providedBy(s)
+                if s not in servers:
+                    servers[s] = []
+                servers[s].append(shareid)
                 shareid_s = ""
                 if i == 0:
                     shareid_s = shareid
-                nickname = sb.get_nickname_for_serverid(serverid)
+                try:
+                    nickname = s.get_nickname()
+                except AttributeError:
+                    print "OOPS", s
+                    raise
                 sharemap.append(T.tr[T.td[shareid_s],
                                      T.td[T.div(class_="nickname")[nickname],
-                                          T.div(class_="nodeid")[T.tt[base32.b2a(serverid)]]]
+                                          T.div(class_="nodeid")[T.tt[s.get_longname()]]]
                                      ])
         add("Good Shares (sorted in share order)",
             T.table()[T.tr[T.th["Share ID"], T.th(class_="nickname-and-peerid")[T.div["Nickname"], T.div(class_="nodeid")["Node ID"]]],
@@ -147,11 +152,11 @@ class ResultsBase:
         servermap = []
         for s in permuted_servers:
             nickname = s.get_nickname()
-            shareids = servers.get(s.get_serverid(), [])
+            shareids = servers.get(s, [])
             shareids.reverse()
             shareids_s = [ T.tt[shareid, " "] for shareid in sorted(shareids) ]
             servermap.append(T.tr[T.td[T.div(class_="nickname")[nickname],
-                                       T.div(class_="nodeid")[T.tt[s.get_name()]]],
+                                       T.div(class_="nodeid")[T.tt[s.get_longname()]]],
                                   T.td[shareids_s],
                                   ])
             num_shares_left -= len(shareids)
@@ -353,10 +358,10 @@ class DeepCheckResults(rend.Page, ResultsBase, ReloadMixin):
         data["count-objects-healthy"] = c["count-objects-healthy"]
         data["count-objects-unhealthy"] = c["count-objects-unhealthy"]
         data["count-corrupt-shares"] = c["count-corrupt-shares"]
-        data["list-corrupt-shares"] = [ (idlib.nodeid_b2a(serverid),
+        data["list-corrupt-shares"] = [ (s.get_longname(),
                                          base32.b2a(storage_index),
                                          shnum)
-                                        for (serverid, storage_index, shnum)
+                                        for (s, storage_index, shnum)
                                         in res.get_corrupt_shares() ]
         data["list-unhealthy-files"] = [ (path_t, json_check_results(r))
                                          for (path_t, r)
@@ -410,17 +415,15 @@ class DeepCheckResults(rend.Page, ResultsBase, ReloadMixin):
         return ""
 
     def data_servers_with_corrupt_shares(self, ctx, data):
-        servers = [serverid
-                   for (serverid, storage_index, sharenum)
+        servers = [s
+                   for (s, storage_index, sharenum)
                    in self.monitor.get_status().get_corrupt_shares()]
-        servers.sort()
+        servers.sort(key=lambda s: s.get_name())
         return servers
 
-    def render_server_problem(self, ctx, data):
-        serverid = data
-        data = [idlib.shortnodeid_b2a(serverid)]
-        sb = self.client.get_storage_broker()
-        nickname = sb.get_nickname_for_serverid(serverid)
+    def render_server_problem(self, ctx, server):
+        data = [server.get_name()]
+        nickname = server.get_nickname()
         if nickname:
             data.append(" (%s)" % self._html(nickname))
         return ctx.tag[data]
@@ -433,10 +436,9 @@ class DeepCheckResults(rend.Page, ResultsBase, ReloadMixin):
     def data_corrupt_shares(self, ctx, data):
         return self.monitor.get_status().get_corrupt_shares()
     def render_share_problem(self, ctx, data):
-        serverid, storage_index, sharenum = data
-        sb = self.client.get_storage_broker()
-        nickname = sb.get_nickname_for_serverid(serverid)
-        ctx.fillSlots("serverid", idlib.shortnodeid_b2a(serverid))
+        server, storage_index, sharenum = data
+        nickname = server.get_nickname()
+        ctx.fillSlots("serverid", server.get_name())
         if nickname:
             ctx.fillSlots("nickname", self._html(nickname))
         ctx.fillSlots("si", self._render_si_link(ctx, storage_index))
@@ -517,16 +519,16 @@ class DeepCheckAndRepairResults(rend.Page, ResultsBase, ReloadMixin):
         data["count-corrupt-shares-pre-repair"] = c["count-corrupt-shares-pre-repair"]
         data["count-corrupt-shares-post-repair"] = c["count-corrupt-shares-pre-repair"]
 
-        data["list-corrupt-shares"] = [ (idlib.nodeid_b2a(serverid),
+        data["list-corrupt-shares"] = [ (s.get_longname(),
                                          base32.b2a(storage_index),
                                          shnum)
-                                        for (serverid, storage_index, shnum)
+                                        for (s, storage_index, shnum)
                                         in res.get_corrupt_shares() ]
 
-        remaining_corrupt = [ (idlib.nodeid_b2a(serverid),
+        remaining_corrupt = [ (s.get_longname(),
                                base32.b2a(storage_index),
                                shnum)
-                              for (serverid, storage_index, shnum)
+                              for (s, storage_index, shnum)
                               in res.get_remaining_corrupt_shares() ]
         data["list-remaining-corrupt-shares"] = remaining_corrupt
 

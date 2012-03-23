@@ -113,11 +113,15 @@ class CiphertextFileNode:
                     # clone the cr (check results) to form the basis of the
                     # prr (post-repair results)
                     prr = CheckResults(cr.uri, cr.storage_index)
-                    prr.data = copy.deepcopy(cr.data)
+                    prr.data = copy.deepcopy(cr.data) # XXX
 
                     sm = prr.data['sharemap']
                     assert isinstance(sm, DictOfSets), sm
                     sm.update(ur.sharemap)
+                    for servers in sm.values():
+                        for s in servers:
+                            from allmydata.interfaces import IServer
+                            assert IServer.providedBy(s), s
                     servers_responding = set(prr.data['servers-responding'])
                     servers_responding.union(ur.sharemap.iterkeys())
                     prr.data['servers-responding'] = list(servers_responding)

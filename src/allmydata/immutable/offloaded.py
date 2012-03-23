@@ -217,7 +217,7 @@ class CHKUploadHelper(Referenceable, upload.CHKUploader):
         r.timings["total_fetch"] = f_times["total"]
         self._reader.close()
         os.unlink(self._encoding_file)
-        self._finished_observers.fire(r)
+        self._finished_observers.fire(make_helper_upload_results(r))
         self._helper.upload_finished(self._storage_index, v.size)
         del self._reader
 

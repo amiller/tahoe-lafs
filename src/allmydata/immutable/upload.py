@@ -32,8 +32,10 @@ from cStringIO import StringIO
 class TooFullError(Exception):
     pass
 
-class UploadResults(Copyable, RemoteCopy):
-    implements(IUploadResults)
+# HelperUploadResults are what we get from the Helper, and to retain
+# backwards compatibility with old Helpers we can't change the format. We
+# convert them into a local UploadResults upon receipt.
+class HelperUploadResults(Copyable, RemoteCopy):
     # note: don't change this string, it needs to match the value used on the
     # helper, and it does *not* need to match the fully-qualified
     # package/module/class name
@@ -54,6 +56,39 @@ class UploadResults(Copyable, RemoteCopy):
         self.uri = None
         self.preexisting_shares = None # count of shares already present
         self.pushed_shares = None # count of shares we pushed
+
+class UploadResults:
+    implements(IUploadResults)
+
+    def __init__(self):
+        self.timings = {} # dict of name to number of seconds
+        self.sharemap = dictutil.DictOfSets() # {shnum: set(IServer)}
+        self.servermap = dictutil.DictOfSets() # {IServer: set(shnum)}
+        self.file_size = None
+        self.ciphertext_fetched = None # how much the helper fetched
+        self.uri = None
+        self.preexisting_shares = None # count of shares already present
+        self.pushed_shares = None # count of shares we pushed
+
+def convert_helper_upload_results(hur, storage_client):
+    ...
+    return ur
+
+def make_helper_upload_results(ur):
+    hur = HelperUploadResults()
+    hur.timings = ur.timings
+    hur.sharemap = dict([ (shnum, set([s.get_serverid() for s in servers]))
+                          for shnum,servers
+                          in ur.sharemap.items() ])
+    hur.servermap = dict([ (s.get_serverid(), shnums)
+                           for s,shnums
+                           in ur.servermap.items() ])
+    hur.file_size = ur.file_size
+    hur.ciphertext_fetched = ur.ciphertext_fetched
+    hur.uri = ur.uri
+    hur.preexisting_shares = ur.preexisting_shares
+    hur.pushed_shares = ur.pushed_shares
+    return hur
 
 
 # our current uri_extension is 846 bytes for small files, a few bytes
