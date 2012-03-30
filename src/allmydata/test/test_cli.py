@@ -2433,6 +2433,17 @@ class Backup(GridTestMixin, CLITestMixin, StallMixin, unittest.TestCase):
         fileutil.make_dirs(os.path.dirname(full_path))
         fileutil.write(full_path, data)
 
+    def mkdir(self, pathname):
+        fn = os.path.join(self.basedir, "home", unicode(pathname))
+        fileutil.make_dirs(fn)
+        return fn
+
+    def symlink(self, src, dst):
+        src_fn = os.path.abspath(os.path.join(self.basedir, "home", unicode(src)))
+        dst_fn = os.path.join(self.basedir, "home", unicode(dst))
+        os.symlink(src_fn, dst_fn)
+        return dst_fn
+
     def count_output(self, out):
         mo = re.search(r"(\d)+ files uploaded \((\d+) reused\), "
                         "(\d)+ files skipped, "
@@ -2443,6 +2454,55 @@ class Backup(GridTestMixin, CLITestMixin, StallMixin, unittest.TestCase):
     def count_output2(self, out):
         mo = re.search(r"(\d)+ files checked, (\d+) directories checked", out)
         return [int(s) for s in mo.groups()]
+
+    def test_backup_symlinks(self):
+        self.basedir = "cli/Backup/backup"
+        self.set_up_grid()
+
+        # is the backupdb available? If so, we test that a second backup does
+        # not create new directories.
+        hush = StringIO()
+        have_bdb = backupdb.get_backupdb(os.path.join(self.basedir, "dbtest"),
+                                         hush)
+
+        # create a small local directory with a couple of files
+        source = os.path.join(self.basedir, "home")
+        self.writeto("parent/A/B.txt", "B.txt\n" * 1000)
+        subdir_sym = self.symlink("parent/A", "parent/A/A")
+        bar_sym = self.symlink("parent/A/B.txt", "parent/A/B_sym.txt")
+
+        def do_backup(verbose=False):
+            cmd = ["backup"]
+            if verbose:
+                cmd.append("--verbose")
+            cmd.append(source)
+            cmd.append("tahoe:backups")
+            return self.do_cli(*cmd)
+
+        d = self.do_cli("create-alias", "tahoe")
+
+        if not have_bdb:
+            d.addCallback(lambda res: self.do_cli("backup", source, "tahoe:backups"))
+            def _should_complain((rc, out, err)):
+                self.failUnless("I was unable to import a python sqlite library" in err, err)
+            d.addCallback(_should_complain)
+            d.addCallback(self.stall, 1.1) # make sure the backups get distinct timestamps
+
+        d.addCallback(lambda res: do_backup())
+        def _check0((rc, out, err)):
+            self.failUnlessReallyEqual(err, "WARNING: symlink depth exceeded 'cli/Backup/backup/home/parent/A/A/A/A/A'\n")
+            self.failUnlessReallyEqual(rc, 2)
+            fu, fr, fs, dc, dr, ds = self.count_output(out)
+            # B.txt and B_sym.txt, 4 times each. This is inefficient, right?
+            self.failUnlessReallyEqual(fu, 8)
+            self.failUnlessReallyEqual(fr, 0)
+            self.failUnlessReallyEqual(fs, 0) # skips A/A/A/A/A (the fourth symlink)
+            # home, home/A, home/A/A, ... home/A/A/A/A/A
+            self.failUnlessReallyEqual(dc, 6)
+            self.failUnlessReallyEqual(dr, 0)
+            self.failUnlessReallyEqual(ds, 1)
+        d.addCallback(_check0)
+        return d
 
     def test_backup(self):
         self.basedir = "cli/Backup/backup"
@@ -2460,7 +2520,7 @@ class Backup(GridTestMixin, CLITestMixin, StallMixin, unittest.TestCase):
         self.writeto("parent/subdir/foo.txt", "foo")
         self.writeto("parent/subdir/bar.txt", "bar\n" * 1000)
         self.writeto("parent/blah.txt", "blah")
-
+        
         def do_backup(verbose=False):
             cmd = ["backup"]
             if verbose:

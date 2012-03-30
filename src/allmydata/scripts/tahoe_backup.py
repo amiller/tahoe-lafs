@@ -159,7 +159,7 @@ class BackerUpper:
         precondition(isinstance(msg, str), msg)
         print >>self.options.stderr, msg
 
-    def process(self, localpath):
+    def process(self, localpath, symlink_depth=0):
         precondition(isinstance(localpath, unicode), localpath)
         # returns newdircap
 
@@ -182,14 +182,23 @@ class BackerUpper:
             assert isinstance(child, unicode), child
             childpath = os.path.join(localpath, child)
             # note: symlinks to directories are both islink() and isdir()
-            if os.path.isdir(childpath) and not os.path.islink(childpath):
-                metadata = get_local_metadata(childpath)
-                # recurse on the child directory
-                childcap = self.process(childpath)
+            if os.path.isdir(childpath):
+                if os.path.islink(childpath):
+                    if symlink_depth >= 3:
+                        self.directories_skipped += 1
+                        self.warn("WARNING: symlink depth exceeded %s" % quote_output(childpath))
+                        continue
+                    metadata = get_local_metadata(childpath)
+                    # recurse on the child directory
+                    childcap = self.process(childpath, symlink_depth+1)
+                else: 
+                    metadata = get_local_metadata(childpath)
+                    # recurse on the child directory
+                    childcap = self.process(childpath, symlink_depth)
                 assert isinstance(childcap, str)
                 create_contents[child] = ("dirnode", childcap, metadata)
                 compare_contents[child] = childcap
-            elif os.path.isfile(childpath) and not os.path.islink(childpath):
+            elif os.path.isfile(childpath):
                 try:
                     childcap, metadata = self.upload(childpath)
                     assert isinstance(childcap, str)
@@ -200,10 +209,7 @@ class BackerUpper:
                     self.warn("WARNING: permission denied on file %s" % quote_output(childpath))
             else:
                 self.files_skipped += 1
-                if os.path.islink(childpath):
-                    self.warn("WARNING: cannot backup symlink %s" % quote_output(childpath))
-                else:
-                    self.warn("WARNING: cannot backup special file %s" % quote_output(childpath))
+                self.warn("WARNING: cannot backup special file %s" % quote_output(childpath))
 
         must_create, r = self.check_backupdb_directory(compare_contents)
         if must_create:
