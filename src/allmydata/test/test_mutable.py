@@ -2385,6 +2385,59 @@ class MultipleVersions(unittest.TestCase, PublishMixin, CheckerMixin):
         d.addCallback(_check_smap)
         return d
 
+class Cache(GridTestMixin, unittest.TestCase):
+
+    def test_cache(self):
+        self.basedir = "mutable/Cache/cache"
+        self.set_up_grid(num_servers=1)
+        c0 = self.g.clients[0]
+        c0.DEFAULT_ENCODING_PARAMETERS['happy'] = 1
+        c0.DEFAULT_ENCODING_PARAMETERS['n'] = 1
+        c0.DEFAULT_ENCODING_PARAMETERS['k'] = 1
+        DATA = "data" * 100
+        d = defer.succeed(None)
+        d.addCallback(lambda ign:
+            c0.create_mutable_file(MutableData(DATA)))
+
+        self_test = self
+        self._cache_written = 0
+        self._cache_read = 0
+        def _add_to_cache(verinfo, shnum, offset, data):
+            self_test._cache_written += len(data)
+            ResponseCache.add(self_test.mut._cache, verinfo, shnum, offset, data)
+
+        def _read_from_cache(verinfo, shnum, offset, length):
+            data = ResponseCache.read(self_test.mut._cache, verinfo, shnum, offset, length)
+            self_test._cache_read += len(data)
+            return data
+
+        # Patch the cache functions with instrumentation
+        def _stash_mutable(node):
+            self.mut = node
+            self.mut._cache.read = _read_from_cache
+            self.mut._cache.add = _add_to_cache
+        d.addCallback(_stash_mutable)
+
+        def _download_check(_):
+            def _check(data):
+                self.failUnlessEqual(data, DATA)
+            d = self.mut.download_best_version()
+            return d.addCallback(_check)
+
+        def _cache_check(_, read_expect, write_expect):
+            self.failUnlessEqual(self._cache_read, read_expect)
+            # NOTE The amount written varies a bit, I believe due to compress-then-encrypt
+            #self.failUnlessEqual(self._cache_written, write_expect)
+
+            # This is too fuzzy for me to commit in good conscience
+            #assert abs(self._cache_written - write_expect) < 5 
+
+        d.addCallback(_download_check)
+        d.addCallback(_cache_check, 1000, 1045)
+        d.addCallback(_download_check)
+        d.addCallback(_cache_check, 2000, 2090)
+        return d
+        
 
 class Utils(unittest.TestCase):
     def test_cache(self):
