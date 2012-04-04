@@ -9,7 +9,7 @@ from foolscap.api import eventually, fireEventually, DeadReferenceError, \
      RemoteException
 from allmydata.interfaces import IRetrieveStatus, NotEnoughSharesError, \
      DownloadStopped, MDMF_VERSION, SDMF_VERSION
-from allmydata.util import hashutil, log, mathutil, deferredutil
+from allmydata.util import hashutil, log, mathutil, deferredutil, spans
 from allmydata.util.dictutil import DictOfSets
 from allmydata import hashtree, codec
 from allmydata.storage.server import si_b2a
@@ -290,12 +290,8 @@ class Retrieve:
             # KiB, so we ask for that much.
             # TODO: Change the cache methods to allow us to fetch all of the
             # data that they have, then change this method to do that.
-            any_cache = self._node._read_from_cache(self.verinfo, shnum,
-                                                    0, 1000)
-            reader = MDMFSlotReadProxy(server.get_rref(),
-                                       self._storage_index,
-                                       shnum,
-                                       any_cache)
+            reader = self.servermap.proxies[(server.get_serverid(), 
+                                             self._storage_index, shnum)]
             reader.server = server
             self.readers[shnum] = reader
         assert len(self.remaining_sharemap) >= k
@@ -766,6 +762,7 @@ class Retrieve:
 
         block_and_salt, blockhashes, sharehashes = results
         block, salt = block_and_salt
+        assert type(block) is str, (block, salt)
 
         blockhashes = dict(enumerate(blockhashes))
         self.log("the reader gave me the following blockhashes: %s" % \
@@ -838,12 +835,13 @@ class Retrieve:
         #needed.discard(0)
         self.log("getting blockhashes for segment %d, share %d: %s" % \
                  (segnum, reader.shnum, str(needed)))
-        d1 = reader.get_blockhashes(needed, force_remote=True)
+        # TODO is force_remote necessary here?
+        d1 = reader.get_blockhashes(needed, force_remote=False)
         if self.share_hash_tree.needed_hashes(reader.shnum):
             need = self.share_hash_tree.needed_hashes(reader.shnum)
             self.log("also need sharehashes for share %d: %s" % (reader.shnum,
                                                                  str(need)))
-            d2 = reader.get_sharehashes(need, force_remote=True)
+            d2 = reader.get_sharehashes(need, force_remote=False)
         else:
             d2 = defer.succeed({}) # the logic in the next method
                                    # expects a dict

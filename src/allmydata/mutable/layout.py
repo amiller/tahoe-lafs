@@ -1191,7 +1191,8 @@ class MDMFSlotReadProxy:
                  rref,
                  storage_index,
                  shnum,
-                 data=""):
+                 data="",
+                 data_is_everything=False):
         # Start the initialization process.
         self._rref = rref
         self._storage_index = storage_index
@@ -1222,8 +1223,14 @@ class MDMFSlotReadProxy:
 
         # If the user has chosen to initialize us with some data, we'll
         # try to satisfy subsequent data requests with that data before
-        # asking the storage server for it. If 
+        # asking the storage server for it.
         self._data = data
+
+        # If the provided data is known to be complete, then we know there's
+        # nothing to be gained by querying the server, so we should just 
+        # partially satisfy requests with what we have.
+        self._data_is_everything = data_is_everything
+
         # The way callers interact with cache in the filenode returns
         # None if there isn't any cached data, but the way we index the
         # cached data requires a string, so convert None to "".
@@ -1734,15 +1741,18 @@ class MDMFSlotReadProxy:
 
     def _read(self, readvs, force_remote=False):
         unsatisfiable = filter(lambda x: x[0] + x[1] > len(self._data), readvs)
+        #print 'cache satisfiability:', readvs, len(self._data), not unsatisfiable, force_remote
         # TODO: It's entirely possible to tweak this so that it just
         # fulfills the requests that it can, and not demand that all
         # requests are satisfiable before running it.
-        if not unsatisfiable and not force_remote:
+        if not unsatisfiable or self._data_is_everything:
             results = [self._data[offset:offset+length]
                        for (offset, length) in readvs]
             results = {self.shnum: results}
             return defer.succeed(results)
         else:
+            #print self, 'callRemote("slot_readv") called', self.shnum, \
+            #    self._storage_index.encode('hex'), self._rref, readvs
             return self._rref.callRemote("slot_readv",
                                          self._storage_index,
                                          [self.shnum],

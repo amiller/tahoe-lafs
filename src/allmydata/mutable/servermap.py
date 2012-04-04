@@ -119,6 +119,7 @@ class ServerMap:
         self._bad_shares = {} # maps (server,shnum) to old checkstring
         self._last_update_mode = None
         self._last_update_time = 0
+        self.proxies = {}
         self.update_data = {} # shnum -> [(verinfo,(blockhashes,start,end)),..]
         # where blockhashes is a list of bytestrings (the result of
         # layout.MDMFSlotReadProxy.get_blockhashes), and start/end are both
@@ -603,6 +604,10 @@ class ServermapUpdater:
             # we ignore success
             d2.addErrback(self._add_lease_failed, server, storage_index)
         d = ss.callRemote("slot_readv", storage_index, shnums, readv)
+        import traceback
+        #print 'servermap called remote', server, \
+        #   storage_index.encode('hex'), shnums, readv
+        #print storage_index.encode('hex'), traceback.extract_stack()[-6:-5]
         return d
 
 
@@ -629,19 +634,6 @@ class ServermapUpdater:
         checkstring = data[:SIGNED_PREFIX_LENGTH]
         self._servermap.mark_bad_share(server, shnum, checkstring)
         self._servermap.add_problem(f)
-
-
-    def _cache_good_sharedata(self, verinfo, shnum, now, data):
-        """
-        If one of my queries returns successfully (which means that we
-        were able to and successfully did validate the signature), I
-        cache the data that we initially fetched from the storage
-        server. This will help reduce the number of roundtrips that need
-        to occur when the file is downloaded, or when the file is
-        updated.
-        """
-        if verinfo:
-            self._node._add_to_cache(verinfo, shnum, 0, data)
 
 
     def _got_results(self, datavs, server, readsize, storage_index, started):
@@ -672,10 +664,14 @@ class ServermapUpdater:
 
         for shnum,datav in datavs.items():
             data = datav[0]
+            #print 'read:', readsize, 'got:', len(data)
             reader = MDMFSlotReadProxy(ss,
                                        storage_index,
                                        shnum,
-                                       data)
+                                       data,
+                                       data_is_everything=len(data)<readsize)
+            self._servermap.proxies[(server.get_serverid(), 
+                                     storage_index, shnum)] = reader
             # our goal, with each response, is to validate the version
             # information and share data as best we can at this point --
             # we do this by validating the signature. To do this, we
@@ -752,8 +748,6 @@ class ServermapUpdater:
                            self._got_signature_one_share(results, shnum, server, lp))
             dl.addErrback(lambda error, shnum=shnum, data=data:
                           self._got_corrupt_share(error, shnum, server, data, lp))
-            dl.addCallback(lambda verinfo, shnum=shnum, data=data:
-                           self._cache_good_sharedata(verinfo, shnum, now, data))
             ds.append(dl)
         # dl is a deferred list that will fire when all of the shares
         # that we found on this server are done processing. When dl fires,
