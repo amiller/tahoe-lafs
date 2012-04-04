@@ -420,6 +420,15 @@ class IStorageBroker(Interface):
         repeatable way, to distribute load over many peers.
         """
 
+class IServer(Interface):
+    """I live in the client, and represent a single server."""
+    def start_connecting(tub, trigger_cb):
+        pass
+    def get_nickname():
+        pass
+    def get_rref():
+        pass
+
 
 class IMutableSlotWriter(Interface):
     """
@@ -1070,6 +1079,9 @@ class ExistingChildError(Exception):
 
 class NoSuchChildError(Exception):
     """A directory node was asked to fetch a child which does not exist."""
+    def __str__(self):
+        # avoid UnicodeEncodeErrors when converting to str
+        return self.__repr__()
 
 class ChildOfWrongTypeError(Exception):
     """An operation was attempted on a child of the wrong type (file or directory)."""
