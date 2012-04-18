@@ -287,7 +287,6 @@ class Retrieve:
         for (shnum, server, timestamp) in shares:
             self.remaining_sharemap.add(shnum, server)
             # Reuse the SlotReader from the servermap
-            #print 'retrieving version:', hash(self.verinfo)
             try:
                 reader = self.servermap.proxies[(self.verinfo,
                                                  server.get_serverid(), 

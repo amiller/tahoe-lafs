@@ -747,9 +747,8 @@ class ServermapUpdater:
                 # Store the proxy (with its cache) keyed by serverid and 
                 # version
                 _, (_,verinfo), _, _, _ = passthrough
-                verinfo = self._make_verinfo_hashable(verinfo),
-                #print 'appending proxy seqnum:', hash(verinfo)
-                self._servermap.proxies[(#verinfo,
+                verinfo = self._make_verinfo_hashable(verinfo)
+                self._servermap.proxies[(verinfo,
                                          server.get_serverid(),
                                          storage_index, shnum)] = reader
                 return passthrough
