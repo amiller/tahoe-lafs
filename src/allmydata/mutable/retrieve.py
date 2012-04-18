@@ -286,12 +286,15 @@ class Retrieve:
         self.remaining_sharemap = DictOfSets()
         for (shnum, server, timestamp) in shares:
             self.remaining_sharemap.add(shnum, server)
-            # If the servermap update fetched anything, it fetched at least 1
-            # KiB, so we ask for that much.
-            # TODO: Change the cache methods to allow us to fetch all of the
-            # data that they have, then change this method to do that.
-            reader = self.servermap.proxies[(server.get_serverid(), 
-                                             self._storage_index, shnum)]
+            # Reuse the SlotReader from the servermap
+            #print 'retrieving version:', hash(self.verinfo)
+            try:
+                reader = self.servermap.proxies[(self.verinfo,
+                                                 server.get_serverid(), 
+                                                 self._storage_index, shnum)]
+            except KeyError:
+                reader = MDMFSlotReadProxy(server.get_rref(), 
+                                           self._storage_index, shnum, None)
             reader.server = server
             self.readers[shnum] = reader
         assert len(self.remaining_sharemap) >= k

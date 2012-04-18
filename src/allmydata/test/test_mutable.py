@@ -640,7 +640,7 @@ class Filenode(unittest.TestCase, testutil.ShouldFailMixin):
         return d
 
     def test_response_cache_memory_leak(self):
-        raise Skip("The ResponseCache has been excised")
+        raise unittest.SkipTest("The ResponseCache has been excised")
         d = self.nodemaker.create_mutable_file("contents")
         def _created(n):
             d = n.download_best_version()
@@ -2343,6 +2343,8 @@ class MultipleEncodings(unittest.TestCase):
             # the current specified behavior is "first version recoverable"
             self.failUnlessEqual(new_contents, contents1)
         d.addCallback(_retrieved)
+        import twisted
+        twisted.internet.base.DelayedCall.debug = True 
         return d
 
 
@@ -2559,7 +2561,8 @@ class Problems(GridTestMixin, unittest.TestCase, testutil.ShouldFailMixin):
         self.basedir = "mutable/Problems/test_retrieve_surprise"
         self.set_up_grid()
         nm = self.g.clients[0].nodemaker
-        d = nm.create_mutable_file(MutableData("contents 1"))
+        content = "content1"
+        d = nm.create_mutable_file(MutableData(content))
         def _created(n):
             d = defer.succeed(None)
             d.addCallback(lambda res: n.get_servermap(MODE_READ))
@@ -2574,8 +2577,6 @@ class Problems(GridTestMixin, unittest.TestCase, testutil.ShouldFailMixin):
             # This will look like someone has changed the file since we
             # updated the servermap.
 
-            # What cache?
-            # d.addCallback(lambda res: n._cache._clear())
             d.addCallback(lambda res: log.msg("starting doomed read"))
             d.addCallback(lambda res:
                           self.shouldFail(NotEnoughSharesError,

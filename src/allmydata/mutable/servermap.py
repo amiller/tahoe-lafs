@@ -670,8 +670,7 @@ class ServermapUpdater:
                                        shnum,
                                        data,
                                        data_is_everything=len(data)<readsize)
-            self._servermap.proxies[(server.get_serverid(), 
-                                     storage_index, shnum)] = reader
+
             # our goal, with each response, is to validate the version
             # information and share data as best we can at this point --
             # we do this by validating the signature. To do this, we
@@ -698,6 +697,7 @@ class ServermapUpdater:
             #   certainly got this by reading the first thousand or so
             #   bytes of the share on the storage server, so we
             #   shouldn't need to fetch anything at this step.
+            #print reader.get_verinfo()
             d2 = reader.get_verinfo()
             d2.addErrback(lambda error, shnum=shnum, data=data:
                           self._got_corrupt_share(error, shnum, server, data, lp))
@@ -743,6 +743,17 @@ class ServermapUpdater:
                 d5 = defer.succeed(None)
 
             dl = defer.DeferredList([d, d2, d3, d4, d5])
+            def _append_proxy(passthrough):
+                # Store the proxy (with its cache) keyed by serverid and 
+                # version
+                _, (_,verinfo), _, _, _ = passthrough
+                verinfo = self._make_verinfo_hashable(verinfo),
+                #print 'appending proxy seqnum:', hash(verinfo)
+                self._servermap.proxies[(#verinfo,
+                                         server.get_serverid(),
+                                         storage_index, shnum)] = reader
+                return passthrough
+            dl.addCallback(_append_proxy)
             dl.addBoth(self._turn_barrier)
             dl.addCallback(lambda results, shnum=shnum:
                            self._got_signature_one_share(results, shnum, server, lp))
@@ -811,6 +822,8 @@ class ServermapUpdater:
             return None
 
         _, verinfo, signature, __, ___ = results
+        verinfo = self._make_verinfo_hashable(verinfo[1])
+
         (seqnum,
          root_hash,
          saltish,
@@ -819,20 +832,8 @@ class ServermapUpdater:
          k,
          n,
          prefix,
-         offsets) = verinfo[1]
-        offsets_tuple = tuple( [(key,value) for key,value in offsets.items()] )
-
-        # XXX: This should be done for us in the method, so
-        # presumably you can go in there and fix it.
-        verinfo = (seqnum,
-                   root_hash,
-                   saltish,
-                   segsize,
-                   datalen,
-                   k,
-                   n,
-                   prefix,
-                   offsets_tuple)
+         offsets_tuple) = verinfo
+        #print verinfo == v1, verinfo
         # This tuple uniquely identifies a share on the grid; we use it
         # to keep track of the ones that we've already seen.
 
@@ -873,13 +874,7 @@ class ServermapUpdater:
 
         return verinfo
 
-
-    def _got_update_results_one_share(self, results, share):
-        """
-        I record the update results in results.
-        """
-        assert len(results) == 4
-        verinfo, blockhashes, start, end = results
+    def _make_verinfo_hashable(self, verinfo):
         (seqnum,
          root_hash,
          saltish,
@@ -889,10 +884,9 @@ class ServermapUpdater:
          n,
          prefix,
          offsets) = verinfo
+
         offsets_tuple = tuple( [(key,value) for key,value in offsets.items()] )
 
-        # XXX: This should be done for us in the method, so
-        # presumably you can go in there and fix it.
         verinfo = (seqnum,
                    root_hash,
                    saltish,
@@ -902,7 +896,15 @@ class ServermapUpdater:
                    n,
                    prefix,
                    offsets_tuple)
+        return verinfo
 
+    def _got_update_results_one_share(self, results, share):
+        """
+        I record the update results in results.
+        """
+        assert len(results) == 4
+        verinfo, blockhashes, start, end = results
+        verinfo = self._make_verinfo_hashable(verinfo)
         update_data = (blockhashes, start, end)
         self._servermap.set_update_data_for_share_and_verinfo(share,
                                                               verinfo,
