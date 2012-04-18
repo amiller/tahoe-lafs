@@ -604,10 +604,6 @@ class ServermapUpdater:
             # we ignore success
             d2.addErrback(self._add_lease_failed, server, storage_index)
         d = ss.callRemote("slot_readv", storage_index, shnums, readv)
-        import traceback
-        #print 'servermap called remote', server, \
-        #   storage_index.encode('hex'), shnums, readv
-        #print storage_index.encode('hex'), traceback.extract_stack()[-6:-5]
         return d
 
 
@@ -697,7 +693,6 @@ class ServermapUpdater:
             #   certainly got this by reading the first thousand or so
             #   bytes of the share on the storage server, so we
             #   shouldn't need to fetch anything at this step.
-            #print reader.get_verinfo()
             d2 = reader.get_verinfo()
             d2.addErrback(lambda error, shnum=shnum, data=data:
                           self._got_corrupt_share(error, shnum, server, data, lp))
@@ -747,7 +742,7 @@ class ServermapUpdater:
                 # Store the proxy (with its cache) keyed by serverid and 
                 # version
                 _, (_,verinfo), _, _, _ = passthrough
-                verinfo = self._make_verinfo_hashable(verinfo)
+                verinfo = self._make_verinfo_hashable(verinfo),
                 self._servermap.proxies[(verinfo,
                                          server.get_serverid(),
                                          storage_index, shnum)] = reader
@@ -823,6 +818,8 @@ class ServermapUpdater:
         _, verinfo, signature, __, ___ = results
         verinfo = self._make_verinfo_hashable(verinfo[1])
 
+        # This tuple uniquely identifies a share on the grid; we use it
+        # to keep track of the ones that we've already seen.
         (seqnum,
          root_hash,
          saltish,
@@ -832,9 +829,7 @@ class ServermapUpdater:
          n,
          prefix,
          offsets_tuple) = verinfo
-        #print verinfo == v1, verinfo
-        # This tuple uniquely identifies a share on the grid; we use it
-        # to keep track of the ones that we've already seen.
+
 
         if verinfo not in self._valid_versions:
             # This is a new version tuple, and we need to validate it
