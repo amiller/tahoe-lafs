@@ -5,13 +5,13 @@
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 </head><body>
 
-<h1>Welcome To The Tahoe-LAFS Introducer</h1>
+<h1>Welcome to the Tahoe-LAFS Introducer</h1>
 
 <div class="section" id="this-client">
   <h2>This Introducer</h2>
 
   <table class="node-info table-headings-left">
-    <tr><th>My nodeid:</th> <td class="nideid mine data-chars" n:render="string" n:data="my_nodeid" /></tr>
+    <tr><th>My nodeid:</th> <td class="nodeid mine data-chars" n:render="string" n:data="my_nodeid" /></tr>
     <tr><th>My versions:</th> <td n:render="string" n:data="version" /></tr>
     <tr><th>Tahoe-LAFS code imported from:</th> <td n:render="string" n:data="import_path" /></tr>
   </table>
@@ -29,7 +29,7 @@
   <tr n:pattern="header">
     <th class="nickname-and-peerid">
       <div class="service-nickname">Nickname</div>
-      <div class="nodeid data-chars">PeerID</div></th>
+      <div class="nodeid data-chars">ServerID</div></th>
     <th>Advertised IPs</th>
     <th>Announced</th>
     <th>Version</th>
@@ -38,7 +38,7 @@
   <tr n:pattern="item" n:render="service_row">
     <td class="nickname-and-peerid">
       <div class="nickname"><n:slot name="nickname"/></div>
-      <div class="nodeid data-chars"><n:slot name="peerid"/></div></td>
+      <div class="nodeid data-chars"><n:slot name="serverid"/></div></td>
     <td><n:slot name="advertised"/></td>
     <td class="service-announced"><n:slot name="announced"/></td>
     <td class="service-version"><n:slot name="version"/></td>
