@@ -9,7 +9,7 @@ from foolscap.api import eventually, fireEventually, DeadReferenceError, \
      RemoteException
 from allmydata.interfaces import IRetrieveStatus, NotEnoughSharesError, \
      DownloadStopped, MDMF_VERSION, SDMF_VERSION
-from allmydata.util import hashutil, log, mathutil, deferredutil, spans
+from allmydata.util import hashutil, log, mathutil, deferredutil
 from allmydata.util.dictutil import DictOfSets
 from allmydata import hashtree, codec
 from allmydata.storage.server import si_b2a

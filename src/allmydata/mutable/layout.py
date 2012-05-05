@@ -1742,14 +1742,13 @@ class MDMFSlotReadProxy:
         # TODO: It's entirely possible to tweak this so that it just
         # fulfills the requests that it can, and not demand that all
         # requests are satisfiable before running it.
+        
         if not unsatisfiable or self._data_is_everything:
             results = [self._data[offset:offset+length]
                        for (offset, length) in readvs]
             results = {self.shnum: results}
             return defer.succeed(results)
         else:
-            #print self, 'callRemote("slot_readv") called', self.shnum, \
-            #    self._storage_index.encode('hex'), self._rref, readvs
             return self._rref.callRemote("slot_readv",
                                          self._storage_index,
                                          [self.shnum],

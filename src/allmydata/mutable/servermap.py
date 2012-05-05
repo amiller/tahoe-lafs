@@ -660,7 +660,6 @@ class ServermapUpdater:
 
         for shnum,datav in datavs.items():
             data = datav[0]
-            #print 'read:', readsize, 'got:', len(data)
             reader = MDMFSlotReadProxy(ss,
                                        storage_index,
                                        shnum,
@@ -742,7 +741,7 @@ class ServermapUpdater:
                 # Store the proxy (with its cache) keyed by serverid and 
                 # version
                 _, (_,verinfo), _, _, _ = passthrough
-                verinfo = self._make_verinfo_hashable(verinfo),
+                verinfo = self._make_verinfo_hashable(verinfo)
                 self._servermap.proxies[(verinfo,
                                          server.get_serverid(),
                                          storage_index, shnum)] = reader
