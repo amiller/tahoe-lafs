@@ -3439,11 +3439,11 @@ class Web(WebMixin, WebErrorMixin, testutil.StallMixin, testutil.ReallyEqualMixi
 
     def test_POST_move_file_to_nonexist_dir(self):
         d = self.POST(self.public_url + "/foo", t="move",
-                      from_name="bar.txt", to_dir="notchucktesta")
+                      from_name="bar.txt", to_dir="nopechucktesta")
         d.addBoth(self.shouldFail, error.Error,
                   "POST_move_file_to_nonexist_dir",
                   "404 Not Found",
-                  "No such child: notchucktesta")
+                  "No such child: nopechucktesta")
         return d
 
     def test_POST_move_file_into_file(self):
