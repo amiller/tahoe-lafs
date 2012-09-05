@@ -153,6 +153,15 @@ class DirectoryNodeHandler(RenderMixin, rend.Page, ReplaceMeMixin):
         req = IRequest(ctx)
         # This is where all of the directory-related ?t=* code goes.
         t = get_arg(req, "t", "").strip()
+
+        # t=info contains variable ophandles, t=rename-form contains the name
+        # of the child being renamed. Neither is allowed an ETag.
+        FIXED_OUTPUT_TYPES =  ["", "json", "uri", "readonly-uri"]
+        if not self.node.is_mutable() and t in FIXED_OUTPUT_TYPES:
+            si = self.node.get_storage_index()
+            if si and req.setETag('DIR:%s-%s' % (base32.b2a(si), t or "")):
+                return ""
+
         if not t:
             # render the directory as HTML, using the docFactory and Nevow's
             # whole templating thing.
@@ -202,9 +211,6 @@ class DirectoryNodeHandler(RenderMixin, rend.Page, ReplaceMeMixin):
             d = self._POST_mkdir_with_children(req)
         elif t == "mkdir-immutable":
             d = self._POST_mkdir_immutable(req)
-        elif t == "mkdir-p":
-            # TODO: docs, tests
-            d = self._POST_mkdir_p(req)
         elif t == "upload":
             d = self._POST_upload(ctx) # this one needs the context
         elif t == "uri":
@@ -213,6 +219,8 @@ class DirectoryNodeHandler(RenderMixin, rend.Page, ReplaceMeMixin):
             d = self._POST_unlink(req)
         elif t == "rename":
             d = self._POST_rename(req)
+        elif t == "move":
+            d = self._POST_move(req)
         elif t == "check":
             d = self._POST_check(req)
         elif t == "start-deep-check":
@@ -284,32 +292,6 @@ class DirectoryNodeHandler(RenderMixin, rend.Page, ReplaceMeMixin):
         kids = convert_children_json(self.client.nodemaker, kids_json)
         d = self.node.create_subdirectory(name, kids, overwrite=False, mutable=False)
         d.addCallback(lambda child: child.get_uri()) # TODO: urlencode
-        return d
-
-    def _POST_mkdir_p(self, req):
-        path = get_arg(req, "path")
-        if not path:
-            raise WebError("mkdir-p requires a path")
-        path_ = tuple([seg.decode("utf-8") for seg in path.split('/') if seg ])
-        # TODO: replace
-        d = self._get_or_create_directories(self.node, path_)
-        d.addCallback(lambda node: node.get_uri())
-        return d
-
-    def _get_or_create_directories(self, node, path):
-        if not IDirectoryNode.providedBy(node):
-            # unfortunately it is too late to provide the name of the
-            # blocking directory in the error message.
-            raise BlockingFileError("cannot create directory because there "
-                                    "is a file in the way")
-        if not path:
-            return defer.succeed(node)
-        d = node.get(path[0])
-        def _maybe_create(f):
-            f.trap(NoSuchChildError)
-            return node.create_subdirectory(path[0])
-        d.addErrback(_maybe_create)
-        d.addCallback(self._get_or_create_directories, path[1:])
         return d
 
     def _POST_upload(self, ctx):
@@ -416,6 +398,58 @@ class DirectoryNodeHandler(RenderMixin, rend.Page, ReplaceMeMixin):
         replace = boolean_of_arg(get_arg(req, "replace", "true"))
         d = self.node.move_child_to(from_name, self.node, to_name, replace)
         d.addCallback(lambda res: "thing renamed")
+        return d
+
+    def _POST_move(self, req):
+        charset = get_arg(req, "_charset", "utf-8")
+        from_name = get_arg(req, "from_name")
+        if from_name is not None:
+            from_name = from_name.strip()
+            from_name = from_name.decode(charset)
+            assert isinstance(from_name, unicode)
+        to_name = get_arg(req, "to_name")
+        if to_name is not None:
+            to_name = to_name.strip()
+            to_name = to_name.decode(charset)
+            assert isinstance(to_name, unicode)
+        if not to_name:
+            to_name = from_name
+        to_dir = get_arg(req, "to_dir")
+        if to_dir is not None:
+            to_dir = to_dir.strip()
+            to_dir = to_dir.decode(charset)
+            assert isinstance(to_dir, unicode)
+        if not from_name or not to_dir:
+            raise WebError("move requires from_name and to_dir")
+        replace = boolean_of_arg(get_arg(req, "replace", "true"))
+
+        # Disallow slashes in both from_name and to_name, that would only
+        # cause confusion. t=move is only for moving things from the
+        # *current* directory into a second directory named by to_dir=
+        if "/" in from_name:
+            raise WebError("from_name= may not contain a slash",
+                           http.BAD_REQUEST)
+        if "/" in to_name:
+            raise WebError("to_name= may not contain a slash",
+                           http.BAD_REQUEST)
+
+        target_type = get_arg(req, "target_type", "name")
+        if target_type == "name":
+            d = self.node.get_child_at_path(to_dir)
+        elif target_type == "uri":
+            d = defer.succeed(self.client.create_node_from_uri(str(to_dir)))
+        else:
+            raise WebError("invalid target_type parameter", http.BAD_REQUEST)
+
+        def is_target_node_usable(target_node):
+            if not IDirectoryNode.providedBy(target_node):
+                raise WebError("to_dir is not a directory", http.BAD_REQUEST)
+            return target_node
+        d.addCallback(is_target_node_usable)
+        d.addCallback(lambda new_parent:
+                      self.node.move_child_to(from_name, new_parent,
+                                              to_name, replace))
+        d.addCallback(lambda res: "thing moved")
         return d
 
     def _maybe_literal(self, res, Results_Class):
@@ -677,7 +711,7 @@ class DirectoryAsHTML(rend.Page):
                 T.input(type='hidden', name='t', value='rename-form'),
                 T.input(type='hidden', name='name', value=name),
                 T.input(type='hidden', name='when_done', value="."),
-                T.input(type='submit', value='rename', name="rename"),
+                T.input(type='submit', value='rename/move', name="rename"),
                 ]
 
         ctx.fillSlots("unlink", unlink)
@@ -942,7 +976,6 @@ class RenameForm(rend.Page):
         name = get_arg(req, "name", "")
         ctx.tag.attributes['value'] = name
         return ctx.tag
-
 
 class ManifestResults(rend.Page, ReloadMixin):
     docFactory = getxmlfile("manifest.xhtml")

@@ -71,6 +71,8 @@ HEADER_LENGTH = struct.calcsize(HEADER)
 OFFSETS = ">LLLLQQ"
 OFFSETS_LENGTH = struct.calcsize(OFFSETS)
 
+MAX_MUTABLE_SHARE_SIZE = 69105*1000*1000*1000*1000 # 69105 TB, kind of arbitrary
+
 
 # These are still used for some tests of SDMF files.
 def unpack_header(data):
@@ -1102,10 +1104,11 @@ class MDMFSlotWriteProxy:
     def get_verinfo(self):
         return (self._seqnum,
                 self._root_hash,
-                self._required_shares,
-                self._total_shares,
+                None,
                 self._segment_size,
                 self._data_length,
+                self._required_shares,
+                self._total_shares,
                 self.get_signable(),
                 self._get_offsets_tuple())
 

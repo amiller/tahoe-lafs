@@ -55,9 +55,7 @@ implemented in Tahoe-LAFS.)
 
 Tahoe-LAFS provides two mechanisms to perform this user-to-cap mapping. The
 first is a simple flat file with one account per line. The second is an
-HTTP-based login mechanism, backed by simple PHP script and a database. The
-latter form is used by allmydata.com to provide secure access to customer
-caps.
+HTTP-based login mechanism, backed by simple PHP script and a database.
 
 Creating an Account File
 ========================
@@ -252,28 +250,17 @@ Upload errors may not be reported when writing files using SFTP via sshfs
 Non-ASCII filenames are supported with SFTP only if the client encodes
 filenames as UTF-8 (`ticket #1089`_).
 
-The gateway node may hang or consume 100% CPU if the client tries to rekey.
-(`ticket #1297`_).  This is due to a bug in Twisted (`Twisted ticket #4395`_)
-which was fixed in Twisted 11.0 (released 3-April-2011).
-
 See also wiki:SftpFrontend_.
 
 .. _ticket #1059: https://tahoe-lafs.org/trac/tahoe-lafs/ticket/1059
 .. _ticket #1089: https://tahoe-lafs.org/trac/tahoe-lafs/ticket/1089
-.. _ticket #1297: https://tahoe-lafs.org/trac/tahoe-lafs/ticket/1297
-.. _Twisted ticket #4395: https://twistedmatrix.com/trac/ticket/4395
 
 Known Issues in the FTP Frontend
 --------------------------------
 
-Mutable files are not supported by the FTP frontend (`ticket
-#680`_). Currently, a directory containing mutable files cannot even be
-listed over FTP.
+Mutable files are not supported by the FTP frontend (`ticket #680`_).
 
 Non-ASCII filenames are not supported by FTP (`ticket #682`_).
-
-The FTP frontend returns all timestamps as being Jan 1, 1970 (`ticket
-#1688`_).
 
 The FTP frontend sometimes fails to report errors, for example if an upload
 fails because it does meet the "servers of happiness" threshold (`ticket
@@ -282,4 +269,3 @@ fails because it does meet the "servers of happiness" threshold (`ticket
 .. _ticket #680: https://tahoe-lafs.org/trac/tahoe-lafs/ticket/680
 .. _ticket #682: https://tahoe-lafs.org/trac/tahoe-lafs/ticket/682
 .. _ticket #1081: https://tahoe-lafs.org/trac/tahoe-lafs/ticket/1081
-.. _ticket #1688: https://tahoe-lafs.org/trac/tahoe-lafs/ticket/1688

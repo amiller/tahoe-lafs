@@ -29,8 +29,9 @@ The Tahoe REST-ful Web API
     6.  `Attaching An Existing File Or Directory (by URI)`_
     7.  `Unlinking A Child`_
     8.  `Renaming A Child`_
-    9.  `Other Utilities`_
-    10. `Debugging and Testing Features`_
+    9.  `Moving A Child`_
+    10. `Other Utilities`_
+    11. `Debugging and Testing Features`_
 
 7.  `Other Useful Pages`_
 8.  `Static Files in /public_html`_
@@ -1274,8 +1275,34 @@ Renaming A Child
  same child-cap under the new name, except that it preserves metadata. This
  operation cannot move the child to a different directory.
 
- This operation will replace any existing child of the new name, making it
- behave like the UNIX "``mv -f``" command.
+ By default, this operation will replace any existing child of the new name,
+ making it behave like the UNIX "``mv -f``" command. Adding a "replace=false"
+ argument causes the command to throw an HTTP 409 Conflict error if there is
+ already a child with the new name.
+
+Moving A Child
+----------------
+
+``POST /uri/$DIRCAP/[SUBDIRS../]?t=move&from_name=OLD&to_dir=TARGETNAME[&target_type=name][&to_name=NEWNAME]``
+``POST /uri/$DIRCAP/[SUBDIRS../]?t=move&from_name=OLD&to_dir=TARGETURI&target_type=uri[&to_name=NEWNAME]``
+
+ This instructs the node to move a child of the given directory to a
+ different directory, both of which must be mutable. If target_type=name
+ or is omitted, the to_dir= parameter should contain the name of a
+ subdirectory of the child's current parent directory (multiple levels of
+ descent are supported). If target_uri=, then to_dir= will be treated as
+ a dircap, allowing the child to be moved to an unrelated directory.
+
+ The child can also be renamed in the process, by providing a new name in
+ the to_name= parameter. If omitted, the child will retain its existing
+ name.
+
+ By default, this operation will replace any existing child of the new name,
+ making it behave like the UNIX "``mv -f``" command. Adding a "replace=false"
+ argument causes the command to throw an HTTP 409 Conflict error if there is
+ already a child with the new name. For safety, the child is not unlinked
+ from the old directory until its has been successfully added to the new
+ directory.
 
 Other Utilities
 ---------------
@@ -1298,6 +1325,8 @@ Other Utilities
   functionality described above, with the provided $CHILDNAME present in the
   'from_name' field of that form. I.e. this presents a form offering to
   rename $CHILDNAME, requesting the new name, and submitting POST rename.
+  This same URL format can also be used with "move-form" with the expected
+  results.
 
 ``GET /uri/$DIRCAP/[SUBDIRS../]CHILDNAME?t=uri``
 
@@ -1346,10 +1375,8 @@ mainly intended for developers.
     count-shares-good: the number of good shares that were found
     count-shares-needed: 'k', the number of shares required for recovery
     count-shares-expected: 'N', the number of total shares generated
-    count-good-share-hosts: this was intended to be the number of distinct
-                            storage servers with good shares. It is currently
-                            (as of Tahoe-LAFS v1.8.0) computed incorrectly;
-                            see ticket #1115.
+    count-good-share-hosts: the number of distinct storage servers with good
+                            shares
     count-wrong-shares: for mutable files, the number of shares for
                         versions other than the 'best' one (highest
                         sequence number, highest roothash). These are

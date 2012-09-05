@@ -43,9 +43,9 @@ not install Python in the "Program Files" directory).
 Get Tahoe-LAFS
 --------------
 
-Download the latest stable release, `Tahoe-LAFS v1.9.1`_.
+Download the latest stable release, `Tahoe-LAFS v1.9.2`_.
 
-.. _Tahoe-LAFS v1.9.1: https://tahoe-lafs.org/source/tahoe-lafs/releases/allmydata-tahoe-1.9.1.zip
+.. _Tahoe-LAFS v1.9.2: https://tahoe-lafs.org/source/tahoe-lafs/releases/allmydata-tahoe-1.9.2.zip
 
 Set Up Tahoe-LAFS
 -----------------
@@ -64,7 +64,8 @@ Optionally run ``python setup.py test`` to verify that it passes all of its
 self-tests.
 
 Run ``bin/tahoe --version`` (on Windows, ``bin\tahoe --version``) to verify
-that the executable tool prints out the right version number.
+that the executable tool prints out the right version number after
+"``allmydata-tahoe:``".
 
 Run Tahoe-LAFS
 --------------

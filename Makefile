@@ -138,11 +138,17 @@ pyflakes:
 	@echo
 
 check-umids:
-	$(PYTHON) misc/coding_tools/check-umids.py `find $(SOURCES) -name '*.py'`
+	$(PYTHON) misc/coding_tools/check-umids.py `find $(SOURCES) -name '*.py' -not -name 'old.py'`
 	@echo
 
 -check-umids:
-	-$(PYTHON) misc/coding_tools/check-umids.py `find $(SOURCES) -name '*.py'`
+	-$(PYTHON) misc/coding_tools/check-umids.py `find $(SOURCES) -name '*.py' -not -name 'old.py'`
+	@echo
+
+doc-checks: check-rst
+
+check-rst:
+	@for x in `find *.rst docs -name "*.rst"`; do rst2html -v $${x} >/dev/null; done 2>&1 |grep -v 'Duplicate implicit target name:'
 	@echo
 
 count-lines:
