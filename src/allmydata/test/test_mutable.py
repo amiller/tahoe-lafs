@@ -1515,7 +1515,7 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
             self.failUnless(f.check(NotEnoughSharesError))
         return self._test_corrupt_all("block_hash_tree",
                                       "block hash tree failure",
-                                      corrupt_early=False,
+                                      corrupt_early=True,
                                       failure_checker=_check)
 
 
@@ -2214,9 +2214,9 @@ class MultipleEncodings(unittest.TestCase):
         # then mix up the shares, to make sure that download survives seeing
         # a variety of encodings. This is actually kind of tricky to set up.
 
-        contents1 = "Contents for encoding 1 (3-of-10) go here"
-        contents2 = "Contents for encoding 2 (4-of-9) go here"
-        contents3 = "Contents for encoding 3 (4-of-7) go here"
+        contents1 = "Contents for encoding 1 (3-of-10) go here"*1000
+        contents2 = "Contents for encoding 2 (4-of-9) go here"*1000
+        contents3 = "Contents for encoding 3 (4-of-7) go here"*1000
 
         # we make a retrieval object that doesn't know what encoding
         # parameters to use
@@ -2461,7 +2461,7 @@ class Problems(GridTestMixin, unittest.TestCase, testutil.ShouldFailMixin):
         self.basedir = "mutable/Problems/test_retrieve_surprise"
         self.set_up_grid()
         nm = self.g.clients[0].nodemaker
-        d = nm.create_mutable_file(MutableData("contents 1"))
+        d = nm.create_mutable_file(MutableData("contents 1"*4000))
         def _created(n):
             d = defer.succeed(None)
             d.addCallback(lambda res: n.get_servermap(MODE_READ))
