@@ -1509,15 +1509,6 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
                                       corrupt_early=False,
                                       failure_checker=_check)
 
-    def test_corrupt_all_block_hash_tree_late(self):
-        def _check(res):
-            f = res[0]
-            self.failUnless(f.check(NotEnoughSharesError))
-        return self._test_corrupt_all("block_hash_tree",
-                                      "block hash tree failure",
-                                      corrupt_early=True,
-                                      failure_checker=_check)
-
 
     def test_corrupt_all_block_late(self):
         def _check(res):
@@ -1599,7 +1590,7 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
         d.addCallback(lambda ignored:
             self._test_corrupt_all(("block_hash_tree", 12 * 32),
                                    "block hash tree failure",
-                                   corrupt_early=False,
+                                   corrupt_early=True,
                                    should_succeed=False))
         return d
 
@@ -1609,7 +1600,7 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
         d.addCallback(lambda ignored:
             self._test_corrupt_all(("block_hash_tree", 12 * 32),
                                    "block hash tree failure",
-                                   corrupt_early=True,
+                                   corrupt_early=False,
                                    should_succeed=False))
         return d
 
