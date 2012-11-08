@@ -377,6 +377,13 @@ class ServerMap:
         self.update_data.setdefault(shnum , []).append((verinfo, data))
 
 
+    def _test_clear_cache(self):
+        # Force each of the slotread proxies to clear their data cache.
+        # This is useful for unit tests.
+        for _,proxy in self.proxies.iteritems():
+            proxy._clear_cache()
+
+
 class ServermapUpdater:
     def __init__(self, filenode, storage_broker, monitor, servermap,
                  mode=MODE_READ, add_lease=False, update_range=None):

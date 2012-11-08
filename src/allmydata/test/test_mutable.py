@@ -1377,6 +1377,7 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
             d.addCallback(corrupt, self._storage, offset)
         def _do_retrieve(servermap):
             ver = servermap.best_recoverable_version()
+            servermap._test_clear_cache()
             if ver is None and not should_succeed:
                 # no recoverable versions == not succeeding. The problem
                 # should be noted in the servermap's list of problems.
@@ -1515,7 +1516,7 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
             self.failUnless(f.check(NotEnoughSharesError))
         return self._test_corrupt_all("block_hash_tree",
                                       "block hash tree failure",
-                                      corrupt_early=True,
+                                      corrupt_early=False,
                                       failure_checker=_check)
 
 
@@ -1599,7 +1600,7 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
         d.addCallback(lambda ignored:
             self._test_corrupt_all(("block_hash_tree", 12 * 32),
                                    "block hash tree failure",
-                                   corrupt_early=False,
+                                   corrupt_early=True,
                                    should_succeed=False))
         return d
 
@@ -1609,7 +1610,7 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
         d.addCallback(lambda ignored:
             self._test_corrupt_all(("block_hash_tree", 12 * 32),
                                    "block hash tree failure",
-                                   corrupt_early=True,
+                                   corrupt_early=False,
                                    should_succeed=False))
         return d
 

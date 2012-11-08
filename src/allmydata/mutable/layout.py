@@ -1235,9 +1235,12 @@ class MDMFSlotReadProxy:
         # The way callers interact with cache in the filenode returns
         # None if there isn't any cached data, but the way we index the
         # cached data requires a string, so convert None to "".
-        if self._data == None:
+        if self._data is None:
             self._data = ""
 
+    def _clear_cache(self):
+        self._data = ""
+        self._data_is_everything = False
 
     def _maybe_fetch_offsets_and_header(self, force_remote=False):
         """
