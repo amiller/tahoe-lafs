@@ -1519,6 +1519,7 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
                                       failure_checker=_check)
 
 
+
     def test_basic_pubkey_at_end(self):
         # we corrupt the pubkey in all but the last 'k' shares, allowing the
         # download to succeed but forcing a bunch of retries first. Note that
@@ -1596,6 +1597,9 @@ class Roundtrip(unittest.TestCase, testutil.ShouldFailMixin, PublishMixin):
 
 
     def test_corrupt_mdmf_block_hash_tree_late(self):
+        # Note - there is no SDMF counterpart to this test, as the SDMF
+        # files are guaranteed to have exactly one block, and therefore
+        # the block hash tree fits within the initial read (#1240).
         d = self.publish_mdmf()
         d.addCallback(lambda ignored:
             self._test_corrupt_all(("block_hash_tree", 12 * 32),
