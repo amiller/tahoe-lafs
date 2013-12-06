@@ -176,6 +176,7 @@ class Client(node.Node, pollmixin.PollMixin):
 
     def init_introducer_client(self):
         self.introducer_furl = self.get_config("client", "introducer.furl")
+
         ic = IntroducerClient(self.tub, self.introducer_furl,
                               self.nickname,
                               str(allmydata.__full_version__),

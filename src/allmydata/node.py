@@ -55,6 +55,8 @@ class OldConfigError(Exception):
 class OldConfigOptionError(Exception):
     pass
 
+class UnescapedHashError(Exception):
+    """ A .furl config item contained an unescaped hash. """
 
 class Node(service.MultiService):
     # this implements common functionality of both Client nodes and Introducer
@@ -105,7 +107,21 @@ class Node(service.MultiService):
         try:
             if boolean:
                 return self.config.getboolean(section, option)
-            return self.config.get(section, option)
+
+            # Make a simple attempt to validate the introducer furl
+            def contains_unescaped_hash(description):
+                description = iter(description)
+                for n in description:
+                    if n == '\\': description.next()
+                    elif n == '#': return True
+                    else: continue
+                return False
+
+            item = self.config.get(section, option)
+            if option.endswith(".furl") and contains_unescaped_hash(item):
+                raise UnescapedHashError(item)
+
+            return item
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
             if default is _None:
                 fn = os.path.join(self.basedir, u"tahoe.cfg")

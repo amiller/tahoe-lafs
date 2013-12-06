@@ -5,6 +5,7 @@ from twisted.application import service
 import allmydata
 from allmydata.node import OldConfigError, OldConfigOptionError, MissingConfigEntry
 from allmydata import client
+from allmydata import node
 from allmydata.storage_client import StorageFarmBroker
 from allmydata.util import base32, fileutil
 from allmydata.interfaces import IFilesystemNode, IFileNode, \
@@ -29,6 +30,29 @@ class Basic(testutil.ReallyEqualMixin, unittest.TestCase):
         fileutil.write(os.path.join(basedir, "tahoe.cfg"), \
                            BASECONFIG)
         client.Client(basedir)
+
+    def test_comment(self):
+        dummy = "pb://wl74cyahejagspqgy4x5ukrvfnevlknt@127.0.0.1:58889/bogus"
+
+        shouldfail = [r"test#test", "#testtest", r"test\\#test"]
+        shouldnotfail = [r"test\#test", r"test\\\#test", r"testtest"]
+
+        basedir = "test_client.Basic.test_comment"
+        os.mkdir(basedir)
+
+        def test(shouldfail, s):
+            config = ("[client]\n"
+                      "introducer.furl = %s\n" % s)
+            fileutil.write(os.path.join(basedir, "tahoe.cfg"), \
+                               config)
+            if shouldfail:
+                self.failUnlessRaises(node.UnescapedHashError, client.Client, basedir)
+            else:
+                client.Client(basedir)
+        
+        for s in shouldfail: test(True, s)
+        for s in shouldnotfail: test(False, s)
+        
 
     @mock.patch('twisted.python.log.msg')
     def test_error_on_old_config_files(self, mock_log_msg):
